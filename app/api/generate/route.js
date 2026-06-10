@@ -8,17 +8,38 @@ export async function POST(req) {
   try {
     const { prompt } = await req.json();
 
-    const result = await client.videos.create({
-      model: "sora-2",
-      prompt,
-    });
+    if (!prompt) {
+      return Response.json(
+        { error: "Missing prompt" },
+        { status: 400 }
+      );
+    }
+
+    let result;
+
+    try {
+      // Try newest model first
+      result = await client.images.generate({
+        model: "gpt-image-2",
+        prompt,
+        size: "1024x1024",
+      });
+    } catch (e) {
+      // Fallback if GPT Image 2 not available
+      result = await client.images.generate({
+        model: "gpt-image-1",
+        prompt,
+        size: "1024x1024",
+      });
+    }
 
     return Response.json({
-      id: result.id,
+      image: result.data[0].url,
     });
+
   } catch (error) {
     return Response.json(
-      { error: error.message },
+      { error: error.message || "Server error" },
       { status: 500 }
     );
   }
