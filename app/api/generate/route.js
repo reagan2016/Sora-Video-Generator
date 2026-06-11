@@ -1,9 +1,3 @@
-import OpenAI from "openai";
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req) {
   try {
     const { prompt } = await req.json();
@@ -15,31 +9,57 @@ export async function POST(req) {
       );
     }
 
-    let result;
+    // 🧠 1. FREE PROMPT ENHANCER (no API key)
+    const enhanceRes = await fetch(
+      "https://api-inference.huggingface.co/models/google/flan-t5-base",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs:
+            "Turn this into a detailed cinematic image prompt: " +
+            prompt,
+        }),
+      }
+    );
+
+    let enhancedPrompt = prompt;
 
     try {
-      // Try newest model first
-      result = await client.images.generate({
-        model: "gpt-image-2",
-        prompt,
-        size: "1024x1024",
-      });
-    } catch (e) {
-      // Fallback if GPT Image 2 not available
-      result = await client.images.generate({
-        model: "gpt-image-1",
-        prompt,
-        size: "1024x1024",
-      });
-    }
+      const result = await enhanceRes.json();
+      if (result?.[0]?.generated_text) {
+        enhancedPrompt = result[0].generated_text;
+      }
+    } catch {}
+
+    // 🎨 2. IMAGE GENERATION (no key)
+    const imageRes = await fetch(
+      "https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-xl-base-1.0",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs: enhancedPrompt,
+        }),
+      }
+    );
+
+    const blob = await imageRes.blob();
+    const buffer = await blob.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
 
     return Response.json({
-      image: result.data[0].url,
+      image: `data:image/png;base64,${base64}`,
+      enhancedPrompt,
     });
 
   } catch (error) {
     return Response.json(
-      { error: error.message || "Server error" },
+      { error: error.message },
       { status: 500 }
     );
   }
