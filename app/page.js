@@ -1,18 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function Home() {
   const [prompt, setPrompt] = useState("");
   const [image, setImage] = useState("");
   const [loading, setLoading] = useState(false);
-  const [enhanced, setEnhanced] = useState("");
-  const [error, setError] = useState("");
+  const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState("");
 
   async function generate() {
     setLoading(true);
-    setError("");
     setImage("");
+    setProgress(0);
+    setStage("Starting...");
+
+    // fake progress controller
+    let p = 0;
+    const interval = setInterval(() => {
+      p += Math.random() * 8;
+
+      if (p < 30) setStage("Understanding prompt...");
+      else if (p < 70) setStage("Creating image...");
+      else setStage("Finishing details...");
+
+      if (p >= 95) p = 95;
+
+      setProgress(p);
+    }, 200);
 
     try {
       const res = await fetch("/api/generate", {
@@ -23,25 +38,29 @@ export default function Home() {
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error);
+      clearInterval(interval);
+      setProgress(100);
+      setStage("Done!");
 
-      setImage(data.image);
-      setEnhanced(data.enhancedPrompt);
+      setTimeout(() => {
+        setImage(data.image);
+        setLoading(false);
+      }, 500);
     } catch (err) {
-      setError(err.message);
+      clearInterval(interval);
+      setStage("Error");
+      setLoading(false);
     }
-
-    setLoading(false);
   }
 
   return (
     <main style={{ padding: 20, fontFamily: "Arial" }}>
-      <h1>🆓 AI Image Generator</h1>
+      <h1>🎨 AI Image Generator</h1>
 
       <textarea
-        rows={5}
+        rows={4}
         style={{ width: "100%" }}
-        placeholder="Type something..."
+        placeholder="Describe your image..."
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
       />
@@ -52,19 +71,40 @@ export default function Home() {
         {loading ? "Generating..." : "Generate"}
       </button>
 
-      <br /><br />
+      {/* LOADING UI */}
+      {loading && (
+        <div style={{ marginTop: 20 }}>
+          <p>⏳ {stage}</p>
 
-      {error && <p style={{ color: "red" }}>❌ {error}</p>}
+          <div style={{
+            width: "100%",
+            height: 10,
+            background: "#333",
+            borderRadius: 5,
+            overflow: "hidden"
+          }}>
+            <div
+              style={{
+                width: `${progress}%`,
+                height: "100%",
+                background: "linear-gradient(90deg,#4f46e5,#22c55e)",
+                transition: "width 0.2s ease"
+              }}
+            />
+          </div>
 
-      {enhanced && <p>🧠 {enhanced}</p>}
+          <p>{Math.round(progress)}%</p>
+        </div>
+      )}
 
-      {loading && <p>⏳ Thinking / generating image...</p>}
-
+      {/* RESULT */}
       {image && (
-        <img
-          src={image}
-          style={{ width: "100%", borderRadius: 10 }}
-        />
+        <div style={{ marginTop: 20 }}>
+          <img
+            src={image}
+            style={{ width: "100%", borderRadius: 10 }}
+          />
+        </div>
       )}
     </main>
   );
