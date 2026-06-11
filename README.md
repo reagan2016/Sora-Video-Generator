@@ -1,4 +1,4 @@
-AI IMAGE GENERATOR
+ # AI IMAGE GENERATOR
 this was supposed to be a Sora video generator
 and a gpt image generator but I can't afford it
 so I'm turning this into an image generator with
